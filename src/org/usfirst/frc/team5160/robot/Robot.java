@@ -49,11 +49,17 @@ public class Robot extends SampleRobot {
         // cameraServer.startAutomaticCapture("camera name, like cam1");
         // gyro = new Gyro(0);
         // gyro.initGyro();
-        print("Initializing...");
+
+        //initialize SmartDashboard values
+        SmartDashboard.putNumber("DrivingMultiplier", drivingMult);
+        SmartDashboard.putNumber("TurningMultiplier", turningMult);
+        SmartDashboard.putNumber("+DriveAcceleration", plusAccelVal);
+        SmartDashboard.putNumber("-DriveAcceleration", negAccelVal);
+        SmartDashboard.putNumber("xyClipAmt", xyClipAmt);
+        SmartDashboard.putNumber("zClipAmt", zClipAmt);
     }
  
     public void autonomous() {
-        System.out.println("Autonomous mode.");
         if (isAutonomous() && isEnabled()) {
             long startTime = System.currentTimeMillis();
             while (System.currentTimeMillis() < startTime + 2000) {
@@ -63,25 +69,18 @@ public class Robot extends SampleRobot {
         }
     }
  
-    public void operatorControl() { 
-        System.out.println("Operator control.");
-        SmartDashboard.putDouble("DrivingMultiplier", drivingMult);
-        SmartDashboard.putDouble("TurningMultiplier", turningMult);
-        SmartDashboard.putDouble("+DriveAcceleration", plusAccelVal);
-        SmartDashboard.putDouble("-DriveAcceleration", negAccelVal);
-        SmartDashboard.putDouble("xyClipAmt", xyClipAmt);
-        SmartDashboard.putDouble("zClipAmt", zClipAmt);
+    public void operatorControl() {
         while (isOperatorControl() && isEnabled()) {
             long curTime = new Date().getTime();
             
             //smart dashboard values
             if (curTime > dashValUpdateTime + 1000) {
-                drivingMult = SmartDashboard.getDouble("DrivingMultiplier");
-                turningMult = SmartDashboard.getDouble("TurningMultiplier");
-                plusAccelVal = SmartDashboard.getDouble("+DriveAcceleration");
-                negAccelVal = SmartDashboard.getDouble("-DriveAcceleration");
-                xyClipAmt = SmartDashboard.getDouble("xyClipAmt");
-                zClipAmt = SmartDashboard.getDouble("zClipAmt");
+                drivingMult = SmartDashboard.getNumber("DrivingMultiplier");
+                turningMult = SmartDashboard.getNumber("TurningMultiplier");
+                plusAccelVal = SmartDashboard.getNumber("+DriveAcceleration");
+                negAccelVal = SmartDashboard.getNumber("-DriveAcceleration");
+                xyClipAmt = SmartDashboard.getNumber("xyClipAmt");
+                zClipAmt = SmartDashboard.getNumber("zClipAmt");
             } else {
                 dashValUpdateTime = curTime;
             }
