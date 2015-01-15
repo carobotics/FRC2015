@@ -13,3 +13,4 @@ hs_err_pid*
 
 # annoying file that keeps changing for no reason
 sysProps.xml
+/bin/

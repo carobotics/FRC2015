@@ -10,12 +10,13 @@ package org.usfirst.frc.team5160.robot;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.buttons.JoystickButton;
 import edu.wpi.first.wpilibj.RobotDrive;
+import edu.wpi.first.wpilibj.RobotDrive.MotorType;
 import edu.wpi.first.wpilibj.SampleRobot;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 // import edu.wpi.first.wpilibj.vision.AxisCamera;
 // import edu.wpi.first.wpilibj.CameraServer;
-// import edu.wpi.first.wpilibj.Gyro;
+import edu.wpi.first.wpilibj.Gyro;
 import java.util.Date;
 
 public class Robot extends SampleRobot {
@@ -23,10 +24,11 @@ public class Robot extends SampleRobot {
     RobotDrive drive = new RobotDrive(0, 1, 2, 3);
     Joystick rightStick = new Joystick(0);
     Joystick leftStick = new Joystick(1);
-    JoystickButton calibrate = new JoystickButton(rightStick, 6);
+    JoystickButton calibrate = new JoystickButton(leftStick, 11);
+    JoystickButton dontTurnButton = new JoystickButton(leftStick, 1);
     // AxisCamera camera;
     // CameraServer cameraServer;
-    // Gyro gyro;
+    Gyro gyro;
     double xAxis = 0.0;
     double yAxis = 0.0;
 
@@ -36,20 +38,14 @@ public class Robot extends SampleRobot {
     double turningMult = 1.0;
     double plusAccelVal = 0.05;
     double negAccelVal = 0.05;
-    double xyClipAmt = 0.1;
-    double zClipAmt = 0.1;
+    double xyClipAmt = 0.2;
+    double zClipAmt = 0.2;
     
     public void print(String msg) {
         System.out.println(msg);
     }
     
     public void robotInit() {
-        // camera = new AxisCamera("camera ip, check webdash");
-        // cameraServer = CameraServer.getInstance();
-        // cameraServer.startAutomaticCapture("camera name, like cam1");
-        // gyro = new Gyro(0);
-        // gyro.initGyro();
-
         //initialize SmartDashboard values
         SmartDashboard.putNumber("DrivingMultiplier", drivingMult);
         SmartDashboard.putNumber("TurningMultiplier", turningMult);
@@ -57,10 +53,19 @@ public class Robot extends SampleRobot {
         SmartDashboard.putNumber("-DriveAcceleration", negAccelVal);
         SmartDashboard.putNumber("xyClipAmt", xyClipAmt);
         SmartDashboard.putNumber("zClipAmt", zClipAmt);
+        
+        drive.setInvertedMotor(MotorType.kFrontRight, true);
+        drive.setInvertedMotor(MotorType.kRearRight, true);
+        // camera = new AxisCamera("camera ip, check webdash");
+        // cameraServer = CameraServer.getInstance();
+        // cameraServer.startAutomaticCapture("camera name, like cam1");
+        gyro = new Gyro(0);
+        gyro.initGyro();
     }
  
     public void autonomous() {
         if (isAutonomous() && isEnabled()) {
+        	gyro.reset();
             long startTime = System.currentTimeMillis();
             while (System.currentTimeMillis() < startTime + 2000) {
                 drive.mecanumDrive_Cartesian(0, -1, 0, 0); //drive straight
@@ -85,24 +90,24 @@ public class Robot extends SampleRobot {
                 dashValUpdateTime = curTime;
             }
 
-            //gyro calibration
-            // if (calibrate.get())
-            // 	gyro.reset();
+            // gyro calibration
+            if (calibrate.get())
+            	gyro.reset();
             
             //START: Main Driving
             
             //get joystick values
-            double xVal = rightStick.getX();
-            double yVal = rightStick.getY();
-            double zVal = rightStick.getZ();
+            double xVal = leftStick.getX();
+            double yVal = leftStick.getY();
+            double zVal = leftStick.getZ();
+
+            if (dontTurnButton.get())
+            	zVal = 0;
 
             //clip x, y, and z values if they are close to center
-            if (Math.abs(xVal) < xyClipAmt)
-                xVal = 0;
-            if (Math.abs(yVal) < xyClipAmt)
-                yVal = 0;
-            if (Math.abs(zVal) < zClipAmt)
-                zVal = 0;
+            xVal = clip(xVal, xyClipAmt);
+            yVal = clip(yVal, xyClipAmt);
+            zVal = clip(zVal, zClipAmt);
             
             //drive smoothing with limited acceleration
             double xDif = xVal - xAxis;
@@ -127,10 +132,23 @@ public class Robot extends SampleRobot {
             else
             	yAxis = yVal;
 
-            drive.mecanumDrive_Cartesian(xAxis * drivingMult, yAxis * drivingMult, -zVal * turningMult, 0);//gyro.getAngle();
+            drive.mecanumDrive_Cartesian(xAxis * drivingMult, yAxis * drivingMult, -zVal * turningMult, gyro.getAngle());
             //END: Main Driving
             
             Timer.delay(0.005); //do not delete
+        }
+    }
+
+    private double clip(double val, double clipAmt) {
+        if (Math.abs(val) < clipAmt) {
+            return 0;
+        } else {
+        	if (val > 0)
+        		val -= clipAmt;
+        	else
+        		val += clipAmt;
+        	val *= 1 / (1 - clipAmt);
+        	return val;
         }
     }
 }
