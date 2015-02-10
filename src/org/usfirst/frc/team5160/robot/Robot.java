@@ -18,6 +18,7 @@ import edu.wpi.first.wpilibj.CameraServer;
 import edu.wpi.first.wpilibj.Gyro;
 import edu.wpi.first.wpilibj.CANTalon;
 import edu.wpi.first.wpilibj.CANTalon.ControlMode;
+import edu.wpi.first.wpilibj.CANTalon.FeedbackDevice;
 
 public class Robot extends SampleRobot {
     RobotDrive drive = new RobotDrive(0, 1, 2, 3);
@@ -32,9 +33,11 @@ public class Robot extends SampleRobot {
 
     CameraServer cameraServer;
     Gyro gyro;
-    double xAxis = 0.0;
-    double yAxis = 0.0;
-    double zAxis = 0.0;
+
+    double ticksPerInch = 136.3158;
+    double desiredChainPosition = 0.0;
+    double chainPositionToBeSet = 0.0;
+    double chainStartingPosition = 0.0;
 
     long lastDashUpdateTime = 0;
 
@@ -49,6 +52,12 @@ public class Robot extends SampleRobot {
     double zClipAmt = 0.2;
     double brakeYMult = 0.3;
     double brakeZMult = 0.7;
+
+    double chainSpeed = 0.2;
+
+    double p = 3.0;
+    double i = 0.0005;
+    double d = 3.0;
     
     public void print(String msg) {
         System.out.println(msg);
@@ -57,7 +66,10 @@ public class Robot extends SampleRobot {
     public void robotInit() {
     	chainMotorSlave.changeControlMode(ControlMode.Follower);
     	chainMotorSlave.set(0); //set to follow chainMotor, with id 0
-    	chainMotor.changeControlMode(ControlMode.PercentVbus); //Need to change to Position once we get encoder.
+    	chainMotor.changeControlMode(ControlMode.Position); //Need to change to Position once we get encoder.
+    	chainMotor.setFeedbackDevice(FeedbackDevice.QuadEncoder);
+    	chainMotor.setPID(p, i, d);
+    	chainStartingPosition = chainMotor.getPosition();
 
         //initialize SmartDashboard with default values
         SmartDashboard.putNumber("DrivingMultiplier", drivingMult);
@@ -68,6 +80,10 @@ public class Robot extends SampleRobot {
         SmartDashboard.putNumber("zClipAmt", zClipAmt);
         SmartDashboard.putNumber("brakeYMult", brakeYMult);
         SmartDashboard.putNumber("brakeZMult", brakeZMult);
+        SmartDashboard.putNumber("chainSpeed", chainSpeed);
+        SmartDashboard.putNumber("P", p);
+        SmartDashboard.putNumber("I", i);
+        SmartDashboard.putNumber("D", d);
         
         drive.setInvertedMotor(MotorType.kFrontRight, true);
         drive.setInvertedMotor(MotorType.kRearRight, true);
@@ -93,7 +109,7 @@ public class Robot extends SampleRobot {
             long curTime = System.currentTimeMillis();
             
             //update smart dashboard values
-            if (curTime > lastDashUpdateTime + 1000) {
+            if (curTime > lastDashUpdateTime + 500) {
                 drivingMult = SmartDashboard.getNumber("DrivingMultiplier");
                 turningMult = SmartDashboard.getNumber("TurningMultiplier");
                 plusAccelVal = SmartDashboard.getNumber("+DriveAcceleration");
@@ -102,6 +118,16 @@ public class Robot extends SampleRobot {
                 zClipAmt = SmartDashboard.getNumber("zClipAmt");
                 brakeYMult = SmartDashboard.getNumber("brakeYMult");
                 brakeZMult = SmartDashboard.getNumber("brakeZMult");
+                chainSpeed = SmartDashboard.getNumber("chainSpeed");
+                p = SmartDashboard.getNumber("P");
+                i = SmartDashboard.getNumber("I");
+                d = SmartDashboard.getNumber("D");
+                if (p != chainMotor.getP() || i != chainMotor.getI() || d != chainMotor.getD())
+                	chainMotor.setPID(p, i, d);
+                SmartDashboard.putNumber("Encoder position", getChainPosition());
+                SmartDashboard.putNumber("Desired position", desiredChainPosition);
+                SmartDashboard.putNumber("Set position", chainPositionToBeSet);
+                SmartDashboard.putNumber("Raw position", chainMotor.getPosition());
 
                 lastDashUpdateTime = curTime;
             }
@@ -150,10 +176,36 @@ public class Robot extends SampleRobot {
             }
 
             //chain driving
-            chainMotor.set(-rightStick.getY());
+            double chainPov = rightStick.getPOV(0);
+            if (Math.abs(getChainPosition() - desiredChainPosition) < 10) { //close enough
+            	if (chainPov == 0)
+            		desiredChainPosition += 20;
+            	if (chainPov == 180)
+            		desiredChainPosition -= 20;
+            }
+
+            double chainPosDif = desiredChainPosition - chainPositionToBeSet;
+            if (Math.abs(chainPosDif) > chainSpeed) {
+            	double dir = chainPosDif / Math.abs(chainPosDif);
+            	chainPositionToBeSet += dir * chainSpeed;
+            } else {
+            	chainPositionToBeSet = desiredChainPosition;
+            }
+
+            setChainPosition(chainPositionToBeSet);
             
             Timer.delay(0.005); //do not delete
         }
+    }
+
+    /** This method returns the accurate chain position based on the calibration. */
+    private double getChainPosition() {
+    	return (chainMotor.getPosition() - chainStartingPosition) / ticksPerInch;
+    }
+
+    /** This method sets the chain position based on the calibration. */
+    private void setChainPosition(double pos) {
+    	chainMotor.set(pos * ticksPerInch + chainStartingPosition);
     }
 
     /** If val is less than clipAmt away from 0, then 0 is returned.
