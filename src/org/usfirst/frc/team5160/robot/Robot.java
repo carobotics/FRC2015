@@ -19,6 +19,7 @@ import edu.wpi.first.wpilibj.CANTalon;
 import edu.wpi.first.wpilibj.CANTalon.ControlMode;
 import edu.wpi.first.wpilibj.CANTalon.FeedbackDevice;
 import edu.wpi.first.wpilibj.Preferences;
+import edu.wpi.first.wpilibj.Gyro;
 
 public class Robot extends SampleRobot {
 	Preferences prefs;
@@ -33,6 +34,7 @@ public class Robot extends SampleRobot {
     JoystickButton calibrate = new JoystickButton(rightStick, 11);
 
     CameraServer cameraServer;
+    Gyro gyro;
     ControlMode mode;
 
     double ticksPerInch = 136.3158;
@@ -65,22 +67,36 @@ public class Robot extends SampleRobot {
     
     public void robotInit() {
     	prefs = Preferences.getInstance();
+    	gyro = new Gyro(0);
+    	gyro.initGyro();
     	
     	chainMotorSlave.changeControlMode(ControlMode.Follower);
     	chainMotorSlave.set(0); //set to follow chainMotor, with id 0
     	chainMotor.setFeedbackDevice(FeedbackDevice.QuadEncoder);
-    	if (!prefs.containsKey("2chainCalibration")) {
+    	if (!prefs.containsKey("3chainCalibration")) {
     		savePositionAsCalibration();
     	} else {
-	    	chainStartingPosition = prefs.getDouble("2chainCalibration", 0.0);
+	    	chainStartingPosition = prefs.getDouble("3chainCalibration", 0.0);
     	}
-		SmartDashboard.putNumber("Beginning Raw Pos", chainMotor.getPosition());
 
-    	if (!prefs.containsKey("2lastRawChainPosition")) {
+    	if (!prefs.containsKey("3lastRawChainPosition")) {
     		saveLastRawPosition();
     	} else {
-	    	chainStartingPosition -= prefs.getDouble("2lastRawChainPosition", 0.0);
-	    	prefs.putDouble("2chainCalibration", chainStartingPosition);
+	    	chainStartingPosition -= prefs.getDouble("3lastRawChainPosition", 0.0);
+	    	prefs.putDouble("3chainCalibration", chainStartingPosition);
+    	}
+
+    	if (!prefs.containsKey("turnAngle")) {
+    		prefs.putDouble("turnAngle", 81);
+    	}
+    	if (!prefs.containsKey("robotMoveForwardTime")) {
+    		prefs.putLong("robotMoveForwardTime", 500);
+    	}
+    	if (!prefs.containsKey("robotMoveForwardTime2")) {
+    		prefs.putLong("robotMoveForwardTime2", 200);
+    	}
+    	if (!prefs.containsKey("robotMoveForwardTime3")) {
+    		prefs.putLong("robotMoveForwardTime3", 2000);
     	}
 
     	desiredChainPosition = getChainPosition();
@@ -115,16 +131,69 @@ public class Robot extends SampleRobot {
  
     public void autonomous() {
         if (isAutonomous() && isEnabled()) {
-            long startTime = System.currentTimeMillis();
-            while (System.currentTimeMillis() < startTime + 1000) {
-                drive.mecanumDrive_Cartesian(0, -0.5, 0, 0); //drive straight
+            double startPos = getChainPosition();
+    		velocityControlMode();
+    		int ultimateHeight = 33;
+            while (getChainPosition() < startPos + 8 && isAutonomous() && isEnabled()) {
+            	chainMotor.set(chainSpeed);
             }
-            drive.mecanumDrive_Cartesian(0, 0, 0, 0);
+            long startTime = System.currentTimeMillis();
+            long duration = prefs.getLong("robotMoveForwardTime", 500);
+            while (System.currentTimeMillis() <= startTime + duration) {
+                drive.mecanumDrive_Cartesian(0, -0.3, 0, 0); //drive straight
+                if (getChainPosition() < startPos + ultimateHeight)
+                	chainMotor.set(chainSpeed);
+            }
+            drive.mecanumDrive_Cartesian(0, 0, 0, 0); //stop
+            while (getChainPosition() < startPos + ultimateHeight && isAutonomous() && isEnabled()) {
+            	chainMotor.set(chainSpeed);
+            }
+        	chainMotor.set(0);
+
+        	//turn left
+        	double startAngle = gyro.getAngle();
+    		print("Start Angle: " + startAngle);
+        	while (gyro.getAngle() > startAngle - prefs.getDouble("turnAngle", 81) && isAutonomous() && isEnabled()) {
+        		print("" + gyro.getAngle());
+                drive.mecanumDrive_Cartesian(0, 0, -0.3, 0); //turn left
+        	}
+
+        	//drive to bin
+            startTime = System.currentTimeMillis();
+            duration = prefs.getLong("robotMoveForwardTime2", 200);
+            while (System.currentTimeMillis() <= startTime + duration) {
+                drive.mecanumDrive_Cartesian(0, -0.25, 0, 0); //drive straight
+            }
+            drive.mecanumDrive_Cartesian(0, 0, 0, 0); //stop
+
+            //lift bin
+            startPos = getChainPosition();
+            while (getChainPosition() < startPos + 10 && isAutonomous() && isEnabled()) {
+            	chainMotor.set(chainSpeed);
+            }
+            chainMotor.set(0);
+
+        	//turn right
+        	while (gyro.getAngle() < startAngle && isAutonomous() && isEnabled()) {
+        		print("" + gyro.getAngle());
+                drive.mecanumDrive_Cartesian(0, 0, 0.3, 0); //turn right
+        	}
+
+        	//drive to zone
+            startTime = System.currentTimeMillis();
+            duration = prefs.getLong("robotMoveForwardTime3", 2000);
+            while (System.currentTimeMillis() <= startTime + duration) {
+                drive.mecanumDrive_Cartesian(0, -0.3, 0, 0); //drive straight
+            }
+            drive.mecanumDrive_Cartesian(0, 0, 0, 0); //stop
+
+            desiredChainPosition = getChainPosition();
         }
     }
  
  	/** Main operator control. */
     public void operatorControl() {
+        positionControlMode();
         while (isOperatorControl() && isEnabled()) {
             long curTime = System.currentTimeMillis();
             
