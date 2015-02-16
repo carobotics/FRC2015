@@ -51,11 +51,11 @@ public class Robot extends SampleRobot {
     double brakeYMult = 0.3;
     double brakeZMult = 0.7;
 
-    double pP = 21.0;
+    double pP = 5.0;
     double pI = 0.0;
-    double pD = 180.0;
+    double pD = 30.0;
 
-    double vP = 1.3;
+    double vP = 2.0;
     double vI = 0.001;
     double vD = 0.0;
     
@@ -69,11 +69,20 @@ public class Robot extends SampleRobot {
     	chainMotorSlave.changeControlMode(ControlMode.Follower);
     	chainMotorSlave.set(0); //set to follow chainMotor, with id 0
     	chainMotor.setFeedbackDevice(FeedbackDevice.QuadEncoder);
-    	if (!prefs.containsKey("chainCalibration")) {
+    	if (!prefs.containsKey("2chainCalibration")) {
     		savePositionAsCalibration();
     	} else {
-	    	chainStartingPosition = prefs.getDouble("chainCalibration", 0.0);
+	    	chainStartingPosition = prefs.getDouble("2chainCalibration", 0.0);
     	}
+		SmartDashboard.putNumber("Beginning Raw Pos", chainMotor.getPosition());
+
+    	if (!prefs.containsKey("2lastRawChainPosition")) {
+    		saveLastRawPosition();
+    	} else {
+	    	chainStartingPosition -= prefs.getDouble("2lastRawChainPosition", 0.0);
+	    	prefs.putDouble("2chainCalibration", chainStartingPosition);
+    	}
+
     	desiredChainPosition = getChainPosition();
     	positionControlMode();
 
@@ -98,12 +107,17 @@ public class Robot extends SampleRobot {
         cameraServer.setQuality(10);
         cameraServer.startAutomaticCapture("cam0");
     }
+
+    public void disabled() {
+        prefs.save();
+        print("Preferences saved.");
+    }
  
     public void autonomous() {
         if (isAutonomous() && isEnabled()) {
             long startTime = System.currentTimeMillis();
-            while (System.currentTimeMillis() < startTime + 2000) {
-                drive.mecanumDrive_Cartesian(0, -1, 0, 0); //drive straight
+            while (System.currentTimeMillis() < startTime + 1000) {
+                drive.mecanumDrive_Cartesian(0, -0.5, 0, 0); //drive straight
             }
             drive.mecanumDrive_Cartesian(0, 0, 0, 0);
         }
@@ -115,7 +129,7 @@ public class Robot extends SampleRobot {
             long curTime = System.currentTimeMillis();
             
             //update smart dashboard values
-            if (curTime > lastDashUpdateTime + 500) {
+            if (curTime > lastDashUpdateTime + 1000) {
                 drivingMult = SmartDashboard.getNumber("DrivingMultiplier");
                 turningMult = SmartDashboard.getNumber("TurningMultiplier");
                 xyClipAmt = SmartDashboard.getNumber("xyClipAmt");
@@ -139,6 +153,8 @@ public class Robot extends SampleRobot {
                 SmartDashboard.putNumber("Encoder position", getChainPosition());
                 SmartDashboard.putNumber("Desired position", desiredChainPosition);
                 SmartDashboard.putNumber("Raw position", chainMotor.getPosition());
+
+                saveLastRawPosition();
 
                 lastDashUpdateTime = curTime;
             }
@@ -214,11 +230,16 @@ public class Robot extends SampleRobot {
         }
     }
 
-    /** This saves the current position as the 0.0 position. */
+    /** This saves the current raw position as the last known raw position. */
+    private void saveLastRawPosition() {
+		prefs.putDouble("2lastRawChainPosition", chainMotor.getPosition());
+    }
+
+    /** This saves the current raw position as the 0.0 position. */
     private void savePositionAsCalibration() {
     	chainStartingPosition = chainMotor.getPosition();
-		prefs.putDouble("chainCalibration", chainStartingPosition);
-		prefs.save();
+		prefs.putDouble("2chainCalibration", chainStartingPosition);
+    	desiredChainPosition = getChainPosition();
     }
     
     /** Change control mode to percent voltage. */
