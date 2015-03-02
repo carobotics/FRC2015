@@ -14,6 +14,7 @@ import edu.wpi.first.wpilibj.RobotDrive.MotorType;
 import edu.wpi.first.wpilibj.SampleRobot;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.CameraServer;
 import edu.wpi.first.wpilibj.CANTalon;
 import edu.wpi.first.wpilibj.CANTalon.ControlMode;
@@ -31,11 +32,16 @@ public class Robot extends SampleRobot {
     Joystick rightStick = new Joystick(0);
     Joystick leftStick = new Joystick(1);
     JoystickButton halfSpeedButton = new JoystickButton(leftStick, 1);
-    JoystickButton calibrate = new JoystickButton(rightStick, 11);
+    JoystickButton calibrateButton = new JoystickButton(rightStick, 11);
+    JoystickButton minButton = new JoystickButton(rightStick, 4);
+    JoystickButton maxButton = new JoystickButton(rightStick, 6);
+    JoystickButton lowButton = new JoystickButton(rightStick, 3);
+    JoystickButton feedButton = new JoystickButton(rightStick, 5);
 
     CameraServer cameraServer;
     Gyro gyro;
     ControlMode mode;
+    SendableChooser autoChooser;
 
     double ticksPerInch = 136.3158;
     double hookMoveAmount = 20;
@@ -73,6 +79,12 @@ public class Robot extends SampleRobot {
     	chainMotorSlave.changeControlMode(ControlMode.Follower);
     	chainMotorSlave.set(0); //set to follow chainMotor, with id 0
     	chainMotor.setFeedbackDevice(FeedbackDevice.QuadEncoder);
+
+    	autoChooser = new SendableChooser();
+    	autoChooser.addDefault("Do nothing", "nothing");
+    	autoChooser.addObject("Take bin and tote", "bin&tote");
+    	SmartDashboard.putData("Autonomous Mode Chooser", autoChooser);
+
     	if (!prefs.containsKey("3chainCalibration")) {
     		savePositionAsCalibration();
     	} else {
@@ -81,9 +93,11 @@ public class Robot extends SampleRobot {
 
     	if (!prefs.containsKey("3lastRawChainPosition")) {
     		saveLastRawPosition();
-    	} else {
+    	} else if (chainMotor.getPosition() == 0) {
 	    	chainStartingPosition -= prefs.getDouble("3lastRawChainPosition", 0.0);
 	    	prefs.putDouble("3chainCalibration", chainStartingPosition);
+    	} else {
+    		print("Code restarted, but encoder values were not lost: " + chainMotor.getPosition());
     	}
 
     	if (!prefs.containsKey("turnAngle")) {
@@ -130,7 +144,7 @@ public class Robot extends SampleRobot {
     }
  
     public void autonomous() {
-        if (isAutonomous() && isEnabled()) {
+        if (isAutonomous() && isEnabled() && ((String) autoChooser.getSelected()).equals("bin&tote")) {
             double startPos = getChainPosition();
     		velocityControlMode();
     		int ultimateHeight = 33;
@@ -229,7 +243,7 @@ public class Robot extends SampleRobot {
             }
 
             //check if we should calibrate
-            if (calibrate.get())
+            if (calibrateButton.get())
             	savePositionAsCalibration();
             
             //get joystick values
@@ -260,6 +274,18 @@ public class Robot extends SampleRobot {
         	int dir = dif == 0 ? 0 : (int) (-dif / Math.abs(dif));
         	double chainJoyVal = clip(-rightStick.getY() * 0.5, 0.1);
 
+        	if (minButton.get() || maxButton.get() || lowButton.get() || feedButton.get()) {
+        		if (minButton.get())
+        			desiredChainPosition = 0;
+        		if (maxButton.get())
+        			desiredChainPosition = 60;
+        		if (lowButton.get())
+        			desiredChainPosition = 16;
+        		if (feedButton.get())
+        			desiredChainPosition = 30;
+        		velocityControlMode();
+        		prevDir = 0;
+        	}
         	if (chainJoyVal == 0) {
         		if (mode == ControlMode.PercentVbus) {
         			positionControlMode();
@@ -270,6 +296,15 @@ public class Robot extends SampleRobot {
 	            	if (dir == -prevDir)
 	            		positionControlMode();
 	            	else {
+	            		if (chainPov == 0 && dir == -1) {
+	            			desiredChainPosition += hookMoveAmount;
+	            			dir *= -1;
+	            		}
+	            		else if (chainPov == 180 && dir == 1) {
+	            			desiredChainPosition -= hookMoveAmount;
+	            			dir *= -1;
+	            		}
+	            		
 		            	chainMotor.set(chainSpeed * dir);
 	            	}
             		prevDir = dir;
