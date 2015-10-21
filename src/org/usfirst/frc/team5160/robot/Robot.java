@@ -32,6 +32,7 @@ public class Robot extends SampleRobot {
     Joystick rightStick = new Joystick(0);
     Joystick leftStick = new Joystick(1);
     JoystickButton halfSpeedButton = new JoystickButton(leftStick, 1);
+    JoystickButton disableButton = new JoystickButton(rightStick, 1);
     JoystickButton calibrateButton = new JoystickButton(rightStick, 11);
     JoystickButton minButton = new JoystickButton(rightStick, 4);
     JoystickButton maxButton = new JoystickButton(rightStick, 6);
@@ -39,7 +40,7 @@ public class Robot extends SampleRobot {
     JoystickButton feedButton = new JoystickButton(rightStick, 5);
 
     CameraServer cameraServer;
-    Gyro gyro;
+//    Gyro gyro;
     ControlMode mode;
     SendableChooser autoChooser;
 
@@ -52,12 +53,14 @@ public class Robot extends SampleRobot {
 
     long lastDashUpdateTime = 0;
 
-    double drivingMult = 0.5;
-    double turningMult = 0.3;
-    double xyClipAmt = 0.2;
+//    double drivingMult = 0.5;
+    double drivingXMult = 0.9;
+    double drivingYMult = 0.5;
+    double turningMult = 0.4;
+    double xyClipAmt = 0.3;
     double zClipAmt = 0.2;
-    double brakeYMult = 0.3;
-    double brakeZMult = 0.7;
+    double brakeYMult = 0.5;
+    double brakeZMult = 0.85;
 
     double pP = 5.0;
     double pI = 0.0;
@@ -73,8 +76,8 @@ public class Robot extends SampleRobot {
     
     public void robotInit() {
     	prefs = Preferences.getInstance();
-    	gyro = new Gyro(0);
-    	gyro.initGyro();
+//    	gyro = new Gyro(0);
+//    	gyro.initGyro();
     	
     	chainMotorSlave.changeControlMode(ControlMode.Follower);
     	chainMotorSlave.set(0); //set to follow chainMotor, with id 0
@@ -117,7 +120,8 @@ public class Robot extends SampleRobot {
     	positionControlMode();
 
         //initialize SmartDashboard with default values
-        SmartDashboard.putNumber("DrivingMultiplier", drivingMult);
+        SmartDashboard.putNumber("Driving X Multiplier", drivingXMult);
+        SmartDashboard.putNumber("Driving Y Multiplier", drivingYMult);
         SmartDashboard.putNumber("TurningMultiplier", turningMult);
         SmartDashboard.putNumber("xyClipAmt", xyClipAmt);
         SmartDashboard.putNumber("zClipAmt", zClipAmt);
@@ -133,9 +137,9 @@ public class Robot extends SampleRobot {
         
         drive.setInvertedMotor(MotorType.kFrontRight, true);
         drive.setInvertedMotor(MotorType.kRearRight, true);
-        cameraServer = CameraServer.getInstance();
-        cameraServer.setQuality(10);
-        cameraServer.startAutomaticCapture("cam0");
+//        cameraServer = CameraServer.getInstance();
+//        cameraServer.setQuality(10);
+//        cameraServer.startAutomaticCapture("cam0");
     }
 
     public void disabled() {
@@ -145,53 +149,53 @@ public class Robot extends SampleRobot {
  
     public void autonomous() {
         if (isAutonomous() && isEnabled() && ((String) autoChooser.getSelected()).equals("bin&tote")) {
-            double startPos = getChainPosition();
-    		velocityControlMode();
-    		int ultimateHeight = 33;
-            while (getChainPosition() < startPos + 8 && isAutonomous() && isEnabled()) {
-            	chainMotor.set(chainSpeed);
-            }
+//            double startPos = getChainPosition();
+//    		velocityControlMode();
+//    		int ultimateHeight = 33;
+//            while (getChainPosition() < startPos + 8 && isAutonomous() && isEnabled()) {
+//            	chainMotor.set(chainSpeed);
+//            }
             long startTime = System.currentTimeMillis();
             long duration = prefs.getLong("robotMoveForwardTime", 500);
-            while (System.currentTimeMillis() <= startTime + duration) {
-                drive.mecanumDrive_Cartesian(0, -0.3, 0, 0); //drive straight
-                if (getChainPosition() < startPos + ultimateHeight)
-                	chainMotor.set(chainSpeed);
-            }
-            drive.mecanumDrive_Cartesian(0, 0, 0, 0); //stop
-            while (getChainPosition() < startPos + ultimateHeight && isAutonomous() && isEnabled()) {
-            	chainMotor.set(chainSpeed);
-            }
-        	chainMotor.set(0);
-
-        	//turn left
-        	double startAngle = gyro.getAngle();
-    		print("Start Angle: " + startAngle);
-        	while (gyro.getAngle() > startAngle - prefs.getDouble("turnAngle", 81) && isAutonomous() && isEnabled()) {
-        		print("" + gyro.getAngle());
-                drive.mecanumDrive_Cartesian(0, 0, -0.3, 0); //turn left
-        	}
-
-        	//drive to bin
-            startTime = System.currentTimeMillis();
-            duration = prefs.getLong("robotMoveForwardTime2", 200);
-            while (System.currentTimeMillis() <= startTime + duration) {
-                drive.mecanumDrive_Cartesian(0, -0.25, 0, 0); //drive straight
-            }
-            drive.mecanumDrive_Cartesian(0, 0, 0, 0); //stop
-
-            //lift bin
-            startPos = getChainPosition();
-            while (getChainPosition() < startPos + 10 && isAutonomous() && isEnabled()) {
-            	chainMotor.set(chainSpeed);
-            }
-            chainMotor.set(0);
-
-        	//turn right
-        	while (gyro.getAngle() < startAngle && isAutonomous() && isEnabled()) {
-        		print("" + gyro.getAngle());
-                drive.mecanumDrive_Cartesian(0, 0, 0.3, 0); //turn right
-        	}
+//            while (System.currentTimeMillis() <= startTime + duration) {
+//                drive.mecanumDrive_Cartesian(0, -0.3, 0, 0); //drive straight
+//                if (getChainPosition() < startPos + ultimateHeight)
+//                	chainMotor.set(chainSpeed);
+//            }
+//            drive.mecanumDrive_Cartesian(0, 0, 0, 0); //stop
+//            while (getChainPosition() < startPos + ultimateHeight && isAutonomous() && isEnabled()) {
+//            	chainMotor.set(chainSpeed);
+//            }
+//        	chainMotor.set(0);
+//
+//        	//turn left
+//        	double startAngle = gyro.getAngle();
+//    		print("Start Angle: " + startAngle);
+//        	while (gyro.getAngle() > startAngle - prefs.getDouble("turnAngle", 81) && isAutonomous() && isEnabled()) {
+//        		print("" + gyro.getAngle());
+//                drive.mecanumDrive_Cartesian(0, 0, -0.3, 0); //turn left
+//        	}
+//
+//        	//drive to bin
+//            startTime = System.currentTimeMillis();
+//            duration = prefs.getLong("robotMoveForwardTime2", 200);
+//            while (System.currentTimeMillis() <= startTime + duration) {
+//                drive.mecanumDrive_Cartesian(0, -0.25, 0, 0); //drive straight
+//            }
+//            drive.mecanumDrive_Cartesian(0, 0, 0, 0); //stop
+//
+//            //lift bin
+//            startPos = getChainPosition();
+//            while (getChainPosition() < startPos + 10 && isAutonomous() && isEnabled()) {
+//            	chainMotor.set(chainSpeed);
+//            }
+//            chainMotor.set(0);
+//
+//        	//turn right
+//        	while (gyro.getAngle() < startAngle && isAutonomous() && isEnabled()) {
+//        		print("" + gyro.getAngle());
+//                drive.mecanumDrive_Cartesian(0, 0, 0.3, 0); //turn right
+//        	}
 
         	//drive to zone
             startTime = System.currentTimeMillis();
@@ -213,7 +217,8 @@ public class Robot extends SampleRobot {
             
             //update smart dashboard values
             if (curTime > lastDashUpdateTime + 1000) {
-                drivingMult = SmartDashboard.getNumber("DrivingMultiplier");
+                drivingXMult = SmartDashboard.getNumber("Driving X Multiplier");
+                drivingYMult = SmartDashboard.getNumber("Driving Y Multiplier");
                 turningMult = SmartDashboard.getNumber("TurningMultiplier");
                 xyClipAmt = SmartDashboard.getNumber("xyClipAmt");
                 zClipAmt = SmartDashboard.getNumber("zClipAmt");
@@ -246,10 +251,12 @@ public class Robot extends SampleRobot {
             if (calibrateButton.get())
             	savePositionAsCalibration();
             
+            Joystick driveStick = leftStick;
+            if (disableButton.get()) driveStick = rightStick;
             //get joystick values
-            double xVal = clip(leftStick.getX(), xyClipAmt);
-            double yVal = clip(leftStick.getY(), xyClipAmt);
-            double zVal = clip(leftStick.getZ(), zClipAmt);
+            double xVal = clip(driveStick.getX(), xyClipAmt);
+            double yVal = clip(driveStick.getY(), xyClipAmt);
+            double zVal = clip(driveStick.getZ(), zClipAmt);
 
             //decrease values if brake pressed
             if (halfSpeedButton.get()) {
@@ -258,14 +265,14 @@ public class Robot extends SampleRobot {
             }
 
             //drive debugging
-            double debugSpeed = (-leftStick.getThrottle() + 1) / 2;
+            double debugSpeed = (-leftStick.getThrottle() + 1) / 8;
             double pov = leftStick.getPOV(0);
 
             //main drive
             if (pov != -1) { //debug driving with the POV
             	drive.mecanumDrive_Polar(debugSpeed, pov, 0);
             } else { //normal driving
-	            drive.mecanumDrive_Cartesian(xVal * drivingMult, yVal * drivingMult, zVal * turningMult, 0);
+	            drive.mecanumDrive_Cartesian(xVal * drivingXMult, yVal * drivingYMult, zVal * turningMult, 0);
             }
 
             //chain driving
@@ -323,7 +330,7 @@ public class Robot extends SampleRobot {
 	            	}
 	            	prevDir = 0;
 	            }
-	        } else {
+	        } else if (!disableButton.get()) {
             	if (mode != ControlMode.PercentVbus)
             		percentControlMode();
 
